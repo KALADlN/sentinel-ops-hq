@@ -6,6 +6,10 @@ on:
     paths:
       - "research/driftguard-q/**"
       - ".github/workflows/driftguard-q.yml"
+  pull_request:
+    paths:
+      - "research/driftguard-q/**"
+      - ".github/workflows/driftguard-q.yml"
   workflow_dispatch:
 
 jobs:
