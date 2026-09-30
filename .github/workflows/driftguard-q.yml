@@ -1,0 +1,30 @@
+name: DriftGuard-Q CI
+
+on:
+  push:
+    branches: [driftguard-q]
+    paths:
+      - "research/driftguard-q/**"
+      - ".github/workflows/driftguard-q.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: research/driftguard-q
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: research/driftguard-q/pyproject.toml
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Test
+        run: pytest -q
+      - name: Tiny experiment
+        run: driftguard-q --distance 3 --rounds 3 --windows 4 --train-shots 256 --shots-per-window 64 --calibration-shots 64 --epochs 1
