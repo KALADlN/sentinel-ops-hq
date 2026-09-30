@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "driftguard-q"
+version = "0.1.0"
+description = "Self-supervised drift detection and adaptive decoding experiments for quantum error correction"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "stim>=1.13",
+  "pymatching>=2.2",
+  "torch>=2.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+driftguard-q = "driftguard_q.experiment:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["driftguard_q*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
