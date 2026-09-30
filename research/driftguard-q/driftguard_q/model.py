@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 import numpy as np
 import torch
@@ -32,6 +33,8 @@ class MaskedSyndromeAutoencoder(nn.Module):
 class DriftModel:
     model: MaskedSyndromeAutoencoder
     threshold: float
+    baseline_mean_loss: float
+    baseline_std_loss: float
     mask_probability: float
 
 
@@ -50,6 +53,7 @@ def train_drift_model(
     learning_rate: float = 1e-3,
     mask_probability: float = 0.15,
     seed: int = 7,
+    z_threshold: float = 4.0,
 ) -> DriftModel:
     torch.manual_seed(seed)
     x = torch.as_tensor(detectors, dtype=torch.float32)
@@ -72,10 +76,14 @@ def train_drift_model(
             loss.backward()
             optimizer.step()
 
-    # Baseline score distribution. The threshold is intentionally conservative.
     losses = reconstruction_losses(model, detectors, mask_probability=0.0)
-    threshold = float(losses.mean() + 4.0 * max(losses.std(), 1e-6))
-    return DriftModel(model=model, threshold=threshold, mask_probability=mask_probability)
+    return DriftModel(
+        model=model,
+        threshold=float(z_threshold),
+        baseline_mean_loss=float(losses.mean()),
+        baseline_std_loss=float(max(losses.std(ddof=1), 1e-6)),
+        mask_probability=mask_probability,
+    )
 
 
 @torch.no_grad()
@@ -101,5 +109,18 @@ def reconstruction_losses(
 
 
 def drift_score(drift_model: DriftModel, detectors: np.ndarray) -> float:
+    """Return a window-level z-score for self-supervised reconstruction loss.
+
+    The model is trained only on baseline syndromes. During adaptation, no
+    logical-state labels are required. A positive score means the current
+    window is harder for the baseline model to reconstruct than expected.
+
+    We compare the mean reconstruction loss of a window with the baseline mean
+    using the standard error of that window. This fixes the overly conservative
+    v0.1 behavior that compared a window average against a single-shot 4-sigma
+    threshold.
+    """
     losses = reconstruction_losses(drift_model.model, detectors)
-    return float(np.mean(losses))
+    n = max(1, int(losses.size))
+    standard_error = drift_model.baseline_std_loss / math.sqrt(n)
+    return float((losses.mean() - drift_model.baseline_mean_loss) / max(standard_error, 1e-9))
